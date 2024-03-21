@@ -12,42 +12,173 @@ from PIL import Image
 import pickle
 import time
 import matplotlib.pyplot as plt
+from torchvision.utils import make_grid
 
 #%%
-# Define paths
+# HDF5 method
+class HDF5Dataset(Dataset):
+    def __init__(self, folder_path):
+        self.file_paths = [os.path.join(folder_path, filename) for filename in os.listdir(folder_path) if filename.endswith('.hdf5')]
+
+    def __len__(self):
+        return len(self.file_paths)
+
+    def __getitem__(self, idx):
+        file_path = self.file_paths[idx]
+        with h5py.File(file_path, 'r') as file:
+            diffpats = torch.Tensor(file['diffpats'][...])
+            phase = torch.Tensor(file['phase'][...])
+        return diffpats, phase,file_path
+
+# Define the path to the HDF5 folder
+hdf5_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy"
+# Create a dataset
+dataset_h= HDF5Dataset(hdf5_folder)
+# Create a DataLoader with batch size 100
+dl= DataLoader(dataset_h, batch_size=100)
+
+
+
+start_time = time.time()
+for batch in dl:
+    print('p')
+    break
+end_time = time.time()
+total_time = end_time - start_time
+print("Total time taken to load data:", total_time, "seconds")
+
+
+""""
+
+# Display image and label.
+diffpats, phase,file_path = next(iter(dl))
+
+
+diffpats_sample = diffpats[5].numpy()  # Convert the tensor to a numpy array
+phase_sample = phase[5].numpy()
+
+# Assuming diffpats_sample is a 3D array with dimensions (channels, height, width) and phase_sample is also a 3D array
+# Display diffpats
+plt.figure(figsize=(10, 5))
+
+plt.subplot(1, 2, 1)
+plt.imshow(diffpats_sample[0])  # Assuming the first channel is grayscale
+plt.title('Diffpats')
+plt.axis('off')
+
+# Display phase
+plt.subplot(1, 2, 2)
+plt.imshow(phase_sample)  # Assuming phase is a scalar field
+plt.title('Phase')
+plt.axis('off')
+
+plt.show()
+
+
+print(f"diffpats batch shape: {diffpats.size()}")
+print(f"phase batch shape: {phase.size()}")
+print(f"file_path shape: {file_path}")
+img = diffpats[0].squeeze()
+label = phase[0]
+plt.imshow(img[50,:,:], cmap="gray")
+plt.show()
+print(f"phase: {label}")
+
+""""
+
+
+
+
+
+
+
+
+
+start_time = time.time()
+
+# Iterate over the DataLoader to load batches
+for batch_idx, (diffpats_batch, phase_batch) in enumerate(dataloader):
+    # You can perform further operations with the batches here
+    pass
+
+end_time = time.time()
+total_time = end_time - start_time
+print("Total time taken to load data:", total_time, "seconds")
+
+
+
+
+    # Example usage of the dataset
+for i in range(len(dataset)):
+    diffpats, phase = dataset[i]
+    # Display diffpats
+    plt.figure()
+    plt.title("diffpats")
+    plt.imshow(diffpats[0,:,:])
+    plt.colorbar()
+    plt.show()
+
+    # Display phase
+    plt.figure()
+    plt.title("phase")
+    plt.imshow(phase, cmap='gray')
+    plt.colorbar()
+    plt.show()
+
+    break  # Break after displaying the first sample
+
+#%%
+# pkl method
 hdf5_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/"
-output_folder = "//mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_diffpats"
+output_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_pkl"
 
 
 
+class PickleDataset(Dataset):
+    def __init__(self, folder_path):
+        self.file_paths = [os.path.join(folder_path, filename) for filename in os.listdir(folder_path) if filename.endswith('.pkl')]
+        self.data_dict = {}
+
+        # Group files by ID
+        for file_path in self.file_paths:
+            id_ = os.path.splitext(os.path.basename(file_path))[0].split('_')[0]
+            if id_ not in self.data_dict:
+                self.data_dict[id_] = {'diffpats': None, 'phase': None}
+            if 'diffpats' in file_path:
+                self.data_dict[id_]['diffpats'] = file_path
+            elif 'phase' in file_path:
+                self.data_dict[id_]['phase'] = file_path
+
+    def __len__(self):
+        return len(self.data_dict)
+
+    def __getitem__(self, idx):
+        id_ = list(self.data_dict.keys())[idx]
+        diffpats_path = self.data_dict[id_]['diffpats']
+        phase_path = self.data_dict[id_]['phase']
+
+        with open(diffpats_path, 'rb') as diffpats_file, open(phase_path, 'rb') as phase_file:
+            diffpats = torch.Tensor(pickle.load(diffpats_file))
+            phase = torch.Tensor(pickle.load(phase_file))
+
+        return diffpats, phase
 
 
-# HDF5 file path
-file_path = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_2_noisy/00000001.hdf5"
-# Open the HDF5 file in read mode
-with h5py.File(file_path, "r") as f:
-    # Display all keys within the HDF5 file
-    print("Keys within the HDF5 file:")
-    print("---------------------------")
-    for key in f.keys():
-        print(key)
+# Define the path to the folder containing pickle files
+output_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_pkl"
 
-# Open the HDF5 file in read mode
-with h5py.File(file_path, "r") as f:
-    # Check if 'mask' key exists in the HDF5 file
-
-        # Access the mask dataset
-        mask_data = f['phase'][:]
-
-        # Display the mask using imshow
-        plt.imshow(mask_data, )
-        plt.title('Mask')
-        plt.colorbar(label='Intensity')
-        plt.show()
+# Create a dataset
+dataset = PickleDataset(output_folder)
+dl_p = DataLoader(dataset, batch_size=100)
 
 
-
-
+start_time = time.time()
+for batch in dl_p:
+    print('p')
+    break
+end_time = time.time()
+total_time = end_time - start_time
+print("Total time taken to load data:", total_time, "seconds")
 
 
 
@@ -57,58 +188,145 @@ with h5py.File(file_path, "r") as f:
 # Ensure output folder exists
 os.makedirs(output_folder, exist_ok=True)
 
-
-
-start = time.time()
-
-# Counter for tracking the number of iterations
-iteration_count = 0
-# A few seconds later
+iter =0
 # Iterate through HDF5 files in the folder
 for filename in os.listdir(hdf5_folder):
+
+    iter +=1
     if filename.endswith(".hdf5"):
         hdf5_path = os.path.join(hdf5_folder, filename)
 
-
         # Load data from HDF5 file
         with h5py.File(hdf5_path, 'r') as file:
-            # Extract 'diffpats' dataset
-            if 'diffpats' in file:
                 diffpats = file['diffpats'][()]
-            else:
-                continue  # Skip this file if 'diffpats' dataset is not found
+                phase = file['phase'][()]
 
         # Save the diffpats array as a pickle file
-        output_filename = os.path.splitext(filename)[0] + '.npy'
-        output_path = os.path.join(output_folder, output_filename)
-        with open(output_path, 'wb') as f:
+        diffpats_output_filename = os.path.splitext(filename)[0] + '_diffpats.pkl'
+        diffpats_output_path = os.path.join(output_folder, diffpats_output_filename)
+        with open(diffpats_output_path, 'wb') as f:
             pickle.dump(diffpats, f)
 
-
-# Calculate the end time and time taken
-end = time.time()
-length = start - end
-
-# Show the results : this can be altered however you like
-print("It took", start-end, "seconds!")
-
-
+        # Save the phase array as a pickle file
+        phase_output_filename = os.path.splitext(filename)[0] + '_phase.pkl'
+        phase_output_path = os.path.join(output_folder, phase_output_filename)
+        with open(phase_output_path, 'wb') as f:
+            pickle.dump(phase, f)
+    if iter == 100:  # Since we're using batch size 100
+        break
 
 
 
-npy_file_path = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_diffpats/00079087.npy"
 
-# Load the array from the .npy file
-array = np.load(npy_file_path,allow_pickle=True)
-# Visualize the array using imshow
-plt.imshow(array[0,:,:])
-
-plt.title('Visualization of NumPy Array')
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.show()
+#%%
+# npy method
+hdf5_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/"
 
 
+npy_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_npy"
+# Ensure output folder exists
+os.makedirs(output_folder, exist_ok=True)
+
+
+class NPYDataset(Dataset):
+    def __init__(self, folder_path):
+        self.file_paths = [os.path.join(folder_path, filename) for filename in os.listdir(folder_path) if filename.endswith('.npy')]
+        self.data_dict = {}
+
+        # Group files by ID
+        for file_path in self.file_paths:
+            id_ = os.path.splitext(os.path.basename(file_path))[0].split('_')[0]
+            if 'diffpats' in file_path:
+                self.data_dict[id_]['diffpats'] = file_path
+            elif 'phase' in file_path:
+                self.data_dict[id_]['phase'] = file_path
+
+    def __len__(self):
+        return len(self.data_dict)
+
+    def __getitem__(self, idx):
+        id_ = list(self.data_dict.keys())[idx]
+        diffpats_path = self.data_dict[id_]['diffpats']
+        phase_path = self.data_dict[id_]['phase']
+
+        diffpats = np.load(diffpats_path)
+        phase = np.load(phase_path)
+
+        # Convert numpy arrays to torch tensors
+        diffpats = torch.from_numpy(diffpats)
+        phase = torch.from_numpy(phase)
+
+        return diffpats, phase
+
+
+
+
+    # Create a dataset
+dataset_n = NPYDataset(npy_folder)
+dl_n = DataLoader(dataset_n, batch_size=100)
+
+start_time = time.time()
+for batch in dl_n:
+    print('p')
+    break
+end_time = time.time()
+total_time = end_time - start_time
+print("Total time taken to load data:", total_time, "seconds")
+
+
+dl_n = DataLoader(dataset_n, batch_size=100)  # Set batch_size to 1 to visualize each sample individually
+
+for i in range(len(dataset_n)):
+    diffpats, phase = dataset_n[i]
+    plt.figure()
+    plt.title("diffpats")
+    plt.imshow(diffpats[0, :, :])
+    plt.colorbar()
+    plt.show()
+
+    # Display phase
+    plt.figure()
+    plt.title("phase")
+    plt.imshow(phase, cmap='gray')
+    plt.colorbar()
+    plt.show()
+
+    break  # Break after visualizing the first sample
+
+
+#%% NPY folder creation
+
+full_path = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00"
+full_path_out = full_path +'_'+ 'npy'
+os.makedirs(full_path_out, exist_ok=True)
+folders = [f.path for f in os.scandir(full_path) if f.is_dir()]
+
+for folder in folders:
+    files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
+    output_path = os.path.join(full_path_out, os.path.basename(folder.rstrip('/')))
+    os.makedirs(output_path, exist_ok=True)
+    #print(output_path)
+    for filename in files:
+       hdf5_path = os.path.join(folder, filename)
+       #print(hdf5_path)
+       with h5py.File(hdf5_path, 'r') as file:
+            diffpats = np.array(file['diffpats'][()])
+            phase = np.array(file['phase'][()])
+            diffpats_output_filename = os.path.splitext(filename)[0] + '_diffpats.npy'
+            diffpats_output_path = os.path.join(output_path, diffpats_output_filename)
+
+            #print(diffpats_output_path)
+
+            phase_output_filename = os.path.splitext(filename)[0] + '_phase.npy'
+            phase_output_path = os.path.join(output_path, phase_output_filename)
+            if not os.path.exists(diffpats_output_path):
+                np.save(phase_output_path, phase)
+                np.save(diffpats_output_path, diffpats)
+            #print(phase_output_path)
+
+
+    #if iter == 100:  # Stop after processing 100 samples
+     #   break
 
 #%%
 class CustomDataset(Dataset):
