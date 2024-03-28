@@ -13,6 +13,170 @@ import pickle
 import time
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+import csv
+
+# %% Data loader via jason
+
+
+class Deep_stem_dataset(Dataset):
+    def __init__(self, json_file):
+        with open(json_file, 'r') as file:
+            self.data = json.load(file)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        sample = self.data[idx]
+        diffpats_path = sample['diffpatts']
+        phase_path = sample['phase']
+
+        diffpats = np.load(diffpats_path)
+        phase = np.load(phase_path)
+
+        # Convert numpy arrays to torch tensors
+        diffpats = torch.from_numpy(diffpats)
+        phase = torch.from_numpy(phase)
+
+        return diffpats, phase
+
+# Load data from JSON file
+json_file_path = "file_paths.json"
+
+dataset = Deep_stem_dataset(json_file_path)
+
+# Create DataLoader
+data_loader = DataLoader(dataset, batch_size=100, shuffle=True)
+
+# Example usage:
+for diffpats_batch, phase_batch in data_loader:
+    # Use diffpats_batch and phase_batch in your training loop
+    pass
+
+
+
+# %% JSON creation
+# npy method
+hdf5_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/"
+npy_folder = '/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00_npy/'
+#   "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_npy"
+# Ensure output folder exists
+# os.makedirs(output_folder, exist_ok=True)
+class NPYDataset(Dataset):
+    def __init__(self, folder_path):
+        self.file_paths = []
+        for root, _, filenames in os.walk(folder_path):
+            for filename in filenames:
+                if filename.endswith('.npy'):
+                    self.file_paths.append(os.path.join(root, filename))
+        self.data_dict = {}
+
+        # Group files by ID
+        for file_path in self.file_paths:
+            id_ = os.path.splitext(os.path.basename(file_path))[0].split('_')[0]
+            if id_ not in self.data_dict:
+                self.data_dict[id_] = {}
+            if 'diffpats' in file_path:
+                self.data_dict[id_]['diffpats'] = file_path
+            elif 'phase' in file_path:
+                self.data_dict[id_]['phase'] = file_path
+
+    def __len__(self):
+        return len(self.data_dict)
+    def __getitem__(self, idx):
+        id_ = list(self.data_dict.keys())[idx]
+        diffpats_path = self.data_dict[id_]['diffpats']
+        phase_path = self.data_dict[id_]['phase']
+        diffpats = np.load(diffpats_path)
+        phase = np.load(phase_path)
+        diffpats = torch.from_numpy(diffpats)
+        phase = torch.from_numpy(phase)
+        return diffpats, phase, diffpats_path, phase_path
+
+
+# Create a dataset
+npy_folder = '/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00_npy/'
+dataset_n = NPYDataset(npy_folder)
+dl_n = DataLoader(dataset_n)
+
+# Create JSON data list
+json_data = []
+
+# Define the output JSON file
+output_json_file = "file_paths.json"
+# Iterate over the DataLoader and collect file paths
+for batch_idx, (diffpats, phase, diffpats_path, phase_path) in enumerate(dl_n):
+    for diffpats_path_item, phase_path_item in zip(diffpats_path, phase_path):
+        diffpats_relative = os.path.relpath(diffpats_path_item, start=npy_folder)
+        phase_relative = os.path.relpath(phase_path_item, start=npy_folder)
+        json_data.append({
+            "diffpatts": diffpats_relative,
+            "phase": phase_relative
+        })
+
+with open(output_json_file, 'w') as json_file:
+    json.dump(json_data, json_file, indent=4)
+
+
+
+
+
+
+
+
+for i in range(len(dataset_n)):
+    diffpats, phase, diffpats_path, phase_path = dataset_n[i]
+
+    break
+    plt.figure()
+    plt.title("diffpats")
+    plt.imshow(diffpats[0, :, :])
+    plt.colorbar()
+    plt.show()
+
+    # Display phase
+    plt.figure()
+    plt.title("phase")
+    plt.imshow(phase, cmap='gray')
+    plt.colorbar()
+    plt.show()
+
+    break  # Break after visualizing the first sample
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #%%
 # HDF5 method
@@ -218,14 +382,10 @@ for filename in os.listdir(hdf5_folder):
 
 
 
-#%%
-# npy method
-hdf5_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/"
 
 
-npy_folder = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_npy"
-# Ensure output folder exists
-os.makedirs(output_folder, exist_ok=True)
+
+__________________________________________________________________________________________________-
 
 
 class NPYDataset(Dataset):
@@ -292,6 +452,8 @@ for i in range(len(dataset_n)):
     plt.show()
 
     break  # Break after visualizing the first sample
+
+
 
 
 #%% NPY folder creation
