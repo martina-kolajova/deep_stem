@@ -62,42 +62,47 @@ npy_folder = '/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00_
 #   "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy_npy"
 # Ensure output folder exists
 # os.makedirs(output_folder, exist_ok=True)
-class NPYDataset(Dataset):
+
+
+
+class Path_dataset(Dataset):
     def __init__(self, folder_path):
         self.file_paths = []
         for root, _, filenames in os.walk(folder_path):
             for filename in filenames:
                 if filename.endswith('.npy'):
                     self.file_paths.append(os.path.join(root, filename))
-        self.data_dict = {}
+        self.data_dict = self._map_files()
 
-        # Group files by ID
+    def _map_files(self):
+        data_dict = {}
         for file_path in self.file_paths:
-            id_ = os.path.splitext(os.path.basename(file_path))[0].split('_')[0]
-            if id_ not in self.data_dict:
-                self.data_dict[id_] = {}
-            if 'diffpats' in file_path:
-                self.data_dict[id_]['diffpats'] = file_path
-            elif 'phase' in file_path:
-                self.data_dict[id_]['phase'] = file_path
+            if '_diffpats.npy' in file_path:
+                phase_path = file_path.replace('_diffpats.npy', '_phase.npy')
+                if os.path.exists(phase_path):
+                    data_dict[file_path] = phase_path
+        return data_dict
 
     def __len__(self):
         return len(self.data_dict)
+
     def __getitem__(self, idx):
-        id_ = list(self.data_dict.keys())[idx]
-        diffpats_path = self.data_dict[id_]['diffpats']
-        phase_path = self.data_dict[id_]['phase']
-        diffpats = np.load(diffpats_path)
-        phase = np.load(phase_path)
-        diffpats = torch.from_numpy(diffpats)
-        phase = torch.from_numpy(phase)
-        return diffpats, phase, diffpats_path, phase_path
+        diffpats_path = list(self.data_dict.keys())[idx]
+        phase_path = self.data_dict[diffpats_path]
+        return diffpats_path, phase_path
 
-
-# Create a dataset
+# Example usage:
 npy_folder = '/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00_npy/'
-dataset_n = NPYDataset(npy_folder)
-dl_n = DataLoader(dataset_n)
+p_dataset = Path_dataset(npy_folder)
+
+# Print all file pairs
+for diffpats_path, phase_path in cp_dataset:
+    print("Diffpats Path:", diffpats_path)
+    print("Phase Path:", phase_path)
+
+
+
+
 
 # Create JSON data list
 json_data = []
@@ -105,7 +110,7 @@ json_data = []
 # Define the output JSON file
 output_json_file = "file_paths.json"
 # Iterate over the DataLoader and collect file paths
-for batch_idx, (diffpats, phase, diffpats_path, phase_path) in enumerate(dl_n):
+for  id(diffpats_path, phase_path) in enumerate(p_dataset):
     for diffpats_path_item, phase_path_item in zip(diffpats_path, phase_path):
         diffpats_relative = os.path.relpath(diffpats_path_item, start=npy_folder)
         phase_relative = os.path.relpath(phase_path_item, start=npy_folder)
