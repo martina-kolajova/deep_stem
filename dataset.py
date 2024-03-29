@@ -14,7 +14,7 @@ import time
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 import csv
-
+import json
 # %% Data loader via jason
 
 
@@ -40,17 +40,84 @@ class Deep_stem_dataset(Dataset):
 
         return diffpats, phase
 
-# Load data from JSON file
-json_file_path = "file_paths.json"
 
-dataset = Deep_stem_dataset(json_file_path)
+
+# Load data from JSON file
+json_file_path = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/data_paths.json"
+
+
+dataset_n = Deep_stem_dataset(json_file_path)
+
+
+
+
+
+
+
+
+class Deep_stem_dataset(Dataset):
+    def __init__(self, json_file, base_path):
+        self.base_path = base_path
+        with open(json_file, 'r') as file:
+            self.data = json.load(file)
+
+        # Prepend base path to paths in the data
+        for sample in self.data:
+            sample['diffpatts'] = os.path.join(self.base_path, sample['diffpatts'])
+            sample['phase'] = os.path.join(self.base_path, sample['phase'])
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        sample = self.data[idx]
+        diffpats_path = sample['diffpatts']
+        phase_path = sample['phase']
+
+        diffpats = np.load(diffpats_path)
+        phase = np.load(phase_path)
+
+        # Convert numpy arrays to torch tensors
+        diffpats = torch.from_numpy(diffpats)
+        phase = torch.from_numpy(phase)
+
+        return diffpats, phase
+
+# Load data from JSON file
+json_file_path = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/data_paths.json"
+base_path = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00_npy"
+
+dataset_n = Deep_stem_dataset(json_file_path, base_path)
+for i in range(len(dataset_n)):
+    diffpats, phase = dataset_n[i]  # Correct unpacking
+    # Convert tensor to numpy array
+    diffpats_np = diffpats.numpy()
+    # Display diffpats
+    plt.figure()
+    plt.title("diffpats")
+    plt.imshow(diffpats_np[0, :, :])
+    plt.colorbar()
+    plt.show()
+
+    # Display phase
+    plt.figure()
+    plt.title("phase")
+    plt.imshow(phase.numpy(), cmap='gray')
+    plt.colorbar()
+    plt.show()
+
+    break  # B
+
 
 # Create DataLoader
 data_loader = DataLoader(dataset, batch_size=100, shuffle=True)
 
 # Example usage:
-for diffpats_batch, phase_batch in data_loader:
+for diffpats, phase_batch in data_loader:
     # Use diffpats_batch and phase_batch in your training loop
+    print("Diffpats Path:", diffpats_path)
+    print("Phase Path:", phase_path)
+    break
     pass
 
 
@@ -96,57 +163,36 @@ npy_folder = '/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/00_
 p_dataset = Path_dataset(npy_folder)
 
 # Print all file pairs
-for diffpats_path, phase_path in cp_dataset:
+for diffpats_path, phase_path in p_dataset:
     print("Diffpats Path:", diffpats_path)
     print("Phase Path:", phase_path)
-
-
-
-
+    break
 
 # Create JSON data list
 json_data = []
 
 # Define the output JSON file
-output_json_file = "file_paths.json"
+output_json_file = "data_paths.json"
 # Iterate over the DataLoader and collect file paths
-for  id(diffpats_path, phase_path) in enumerate(p_dataset):
-    for diffpats_path_item, phase_path_item in zip(diffpats_path, phase_path):
-        diffpats_relative = os.path.relpath(diffpats_path_item, start=npy_folder)
-        phase_relative = os.path.relpath(phase_path_item, start=npy_folder)
-        json_data.append({
-            "diffpatts": diffpats_relative,
-            "phase": phase_relative
-        })
 
+# Iterate over the DataLoader and collect file paths
+for diffpats_path, phase_path in p_dataset:
+    diffpats_relative = os.path.relpath(diffpats_path, start=npy_folder)
+    phase_relative = os.path.relpath(phase_path, start=npy_folder)
+    json_data.append({
+        "diffpatts": diffpats_relative,
+        "phase": phase_relative
+    })
+
+output_json_file = "/mnt/mdpm/d01/sftp/jilek/data/02/export_100_downsample_1_noisy/data_paths.json"
+
+# Write JSON data to file
 with open(output_json_file, 'w') as json_file:
     json.dump(json_data, json_file, indent=4)
 
 
 
-
-
-
-
-
-for i in range(len(dataset_n)):
-    diffpats, phase, diffpats_path, phase_path = dataset_n[i]
-
-    break
-    plt.figure()
-    plt.title("diffpats")
-    plt.imshow(diffpats[0, :, :])
-    plt.colorbar()
-    plt.show()
-
-    # Display phase
-    plt.figure()
-    plt.title("phase")
-    plt.imshow(phase, cmap='gray')
-    plt.colorbar()
-    plt.show()
-
-    break  # Break after visualizing the first sample
+reak after visualizing the first sample
 
 
 
